@@ -4,6 +4,12 @@
 
 积分商城系统 - 为其他插件提供商品注册和购买功能，显著降低开发者的开发难度和提高用户的易用性。
 
+> [!WARNING]
+> 该插件仍处于开发阶段，可能存在一些问题和不稳定的功能，请谨慎使用。
+
+> [!WARNING]
+> 该插件仍处于开发阶段，接口可能会发生变化。
+
 ## 功能特点
 
 - 统一的商品注册和管理接口
@@ -12,12 +18,6 @@
 - 库存管理功能
 - 购买记录追踪
 - 与 pointmint 积分系统无缝集成
-
-## 安装方法
-
-```bash
-npm install koishi-plugin-pointmintmarket
-```
 
 ## 使用方法
 
@@ -34,7 +34,7 @@ npm install koishi-plugin-pointmintmarket
 - `商城.标签` - 查看所有商品标签
 - `商城.记录` - 查看个人购买记录
 
-### 开发者接口
+### 开发者接入
 
 #### 注册商品
 
@@ -58,105 +58,3 @@ export function apply(ctx: Context) {
   })
 }
 ```
-
-#### 更新商品
-
-```typescript
-const itemId = 'your-item-id'
-ctx.market.updateItem('your-plugin-name', itemId, {
-  price: 150,
-  stock: 5
-})
-```
-
-#### 删除商品
-
-```typescript
-ctx.market.removeItem('your-plugin-name', 'your-item-id')
-```
-
-#### 获取商品列表
-
-```typescript
-// 获取所有商品
-const allItems = await ctx.market.getItems()
-
-// 按条件筛选商品
-const filteredItems = await ctx.market.getItems({
-  category: '特定分类',
-  tags: ['特定标签'],
-  minPrice: 50,
-  maxPrice: 200
-})
-```
-
-#### 获取商品详情
-
-```typescript
-const item = await ctx.market.getItemById('item-id')
-```
-
-## 示例插件
-
-以下是一个完整的示例插件，展示如何使用积分商城：
-
-```typescript
-import { Context } from 'koishi'
-
-export const name = 'example-market-plugin'
-
-export function apply(ctx: Context) {
-  // 注册一个虚拟物品
-  const itemId = ctx.market.registerItem('example-market-plugin', {
-    name: 'VIP会员(1天)',
-    description: '购买后获得1天VIP会员资格',
-    price: 500,
-    category: 'VIP特权',
-    tags: ['会员', '特权'],
-    stock: 999,
-    onPurchase: async (userId, username, transactionId) => {
-      // 这里实现购买后的逻辑，例如给用户添加VIP角色
-      try {
-        // 记录用户的VIP到期时间
-        const now = new Date()
-        const expireTime = new Date(now.getTime() + 24 * 60 * 60 * 1000) // 1天后
-        
-        // 假设你有一个存储VIP信息的数据库表
-        await ctx.database.upsert('vip_users', [
-          {
-            userId,
-            expireTime,
-            transactionId
-          }
-        ])
-        
-        // 通知用户
-        const user = await ctx.database.getUser(userId)
-        if (user?.platform && user?.channelId) {
-          await ctx.bots[user.platform].sendPrivateMessage(user.channelId, 
-            `恭喜您成功购买VIP会员！有效期至：${expireTime.toLocaleString()}`
-          )
-        }
-        
-        return true
-      } catch (error) {
-        ctx.logger('example-plugin').error(`处理VIP购买失败: ${error}`)
-        return false
-      }
-    }
-  })
-  
-  ctx.logger('example-plugin').info(`已注册商品: ${itemId}`)
-  
-  // 你也可以注册更多不同类型的商品
-}
-```
-
-## 依赖
-
-- koishi: ^4.18.3
-- koishi-plugin-pointmint: 需要安装并启用
-
-## 许可证
-
-MIT
