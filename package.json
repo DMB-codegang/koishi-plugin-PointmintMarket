@@ -1,22 +1,48 @@
 {
   "name": "koishi-plugin-pointmintmarket",
-  "description": "适用于pointmint的积分商城插件",
-  "version": "0.0.1",
+  "description": "积分商城系统 - 为其他插件提供商品注册和购买功能",
+  "version": "0.0.5",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
-  "license": "MIT",
-  "scripts": {},
+  "contributors": [
+    "小舍 <DMB-codegang@users.noreply.github.com>"
+  ],
+  "license": "AGPL-3.0",
+  "scripts": {
+    "build": "tsc -b"
+  },
   "keywords": [
     "chatbot",
     "koishi",
-    "plugin"
+    "plugin",
+    "pointmint",
+    "market",
+    "shop"
   ],
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
   "peerDependencies": {
-    "koishi": "^4.18.3"
+    "koishi": "^4.18.3",
+    "koishi-plugin-pointmint": "^0.0.5"
+  },
+  "koishi": {
+    "description": {
+      "zh": "依赖于[Pointmint](https://github.com/DMB-codegang/PointMint)插件的积分商城系统"
+    },
+    "service": {
+      "required": [
+        "points"
+      ],
+      "implements": [
+        "market"
+      ]
+    },
+    "preview": true
   }
 }
