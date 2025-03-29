@@ -36,7 +36,7 @@ export const Config: Schema<Config> = Schema.intersect([
     marketStyleDefaultError: Schema.string().default('未知错误').description('未知错误时的默认提示，使用`{code}`表示错误码，`{msg}`表示错误信息'),
   }).description('基本样式设置'),
   Schema.object({
-    marketStyle_maxItemsPerPage: Schema.number().default(10).min(1).description('单页最大商品数量'),
+    marketStyle_maxItemsPerPage: Schema.number().default(3).min(1).description('单页最大商品数量'),
     marketStyle: Schema.union([
       Schema.const('text').description('使用纯文本输出商品信息'),
       Schema.const('plugin').disabled().experimental().description('使用其他插件输出商品信息'),

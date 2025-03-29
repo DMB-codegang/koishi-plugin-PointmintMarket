@@ -1,6 +1,4 @@
-import { Context } from "koishi";
-
-import { logs } from "./index";
+import { Context, Logger } from "koishi";
 import { Config } from "./config";
 
 
@@ -11,7 +9,7 @@ export async function registerCommands(ctx: Context, config: Config) {
             shop.action(async ({ session }) => {
                 switch (config.marketStyle){
                     case 'text':
-                        const items = await ctx.market.Items;
+                        const items = ctx.market.Items;
                         let page = 1;
                         // 计算出总页数
                         const totalPages = Math.ceil(items.length / config.marketStyle_maxItemsPerPage);
@@ -25,7 +23,7 @@ export async function registerCommands(ctx: Context, config: Config) {
                             let itemsString = ''
                             // 构建当前页商品的字符串
                             for (const item of pageItems) {
-                                itemsString += `\n${item.name} - ${item.price}积分\n${item.description}`;
+                                itemsString += `ID：${item.id}\n${item.name} - ${item.price}积分\n${item.description}\n`;
                             }
                             let marketString = config.marketStyleTextStyle;
                             marketString = marketString.replace('{items}', itemsString);
@@ -35,6 +33,13 @@ export async function registerCommands(ctx: Context, config: Config) {
                             await session.send(marketString);
                             // 等待用户输入页码
                             const input = await session.prompt(60000);
+                            const exchangeMatch = input.match(/^兑换\s+(\S+)/);
+                            if (exchangeMatch) {
+                                const [, itemId] = exchangeMatch;
+                                const result = await ctx.market.purchaseItem(session.userId, itemId, session);
+                                await session.send(result.message);
+                                return
+                            }
                             // 如果用户输入了页码，则跳转到对应的页面
                             if (input) {
                                 const newPage = parseInt(input);
@@ -62,6 +67,9 @@ export async function registerCommands(ctx: Context, config: Config) {
                     const id = await session.prompt(60000)
                 }
                 const result = await ctx.market.purchaseItem(session.userId, id, session)
+                if (!result.success) {
+                    session.send(result.message)
+                }
             })
         }
     }

@@ -20,7 +20,7 @@ export class MarketService extends Service {
 
     // 商品数据
     Items: MarketItem[] = []
-    private registeredCallbacks: Map<string, (userId: string, username: string, session: Session) => Promise<boolean | PluginFeedback | string>> = new Map()
+    private registeredCallbacks: Map<string, (session: Session) => Promise<boolean | PluginFeedback | string>> = new Map()
 
     async registerItem(pluginName: string, options: MarketItemRegisterOptions) {
         const itemId = options.id || randomUUID()
@@ -39,7 +39,7 @@ export class MarketService extends Service {
             tags: options.tags || undefined,
             stock: options.stock || undefined
         })
-        logs.info(this.Items)
+        logs.info(`已注册商品 ${itemId}`)
     }
 
     // 购买商品
@@ -70,7 +70,7 @@ export class MarketService extends Service {
             return { success: false, message: result.msg, item: item }
         }
         // 执行购买回调
-        const callbackResult = await callback(userId, username, session)
+        const callbackResult = await callback(session)
         if (typeof callbackResult === 'boolean') {
             if (!callbackResult) {
                 // 购买失败，回滚积分
@@ -92,6 +92,15 @@ export class MarketService extends Service {
             item.stock--
         }
         return { success: true, message: '购买成功', transactionId: transactionId, item: item }
+    }
+
+    // 取消注册商品，将对应itemid的商品从this.Items中删除
+    unregisterItem(itemId: string) {
+        this.Items = this.Items.filter(item => item.id!== itemId)
+    }
+    // 取消注册某插件的所有商品
+    unregisterItems(pluginName: string) {
+        this.Items = this.Items.filter(item => item.pluginName!== pluginName) 
     }
 }
 
