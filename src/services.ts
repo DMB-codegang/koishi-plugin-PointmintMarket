@@ -1,60 +1,93 @@
-import { Context, Service, Session} from "koishi";
-import { randomUUID } from 'crypto';
+import { Context, Service, Session } from "koishi";
 
 import 'koishi-plugin-pointmint'
 
 import { name, logs } from './index'
 import { Config } from './config'
+import { market_database } from "./database";
 import { MarketItem } from "./types/index";
 import { MarketItemRegisterOptions, PluginFeedback, PurchaseResult } from './types/services'
+
+declare module '@koishijs/plugin-console' {
+    interface Events {
+        'get-Items'(): MarketItem[]
+        'save-Item'(data: MarketItem): void
+    }
+}
 
 export class MarketService extends Service {
     static inject = ['points']
     static [Service.provide] = 'market'
 
     private cfg: Config
+    private db: market_database
+    private registerLock: boolean = false
     constructor(ctx: Context, cfg: Config) {
         super(ctx, 'market')
         this.cfg = cfg
+        this.db = new market_database(ctx)
     }
 
-    // 商品数据
-    Items: MarketItem[] = []
-    private registeredCallbacks: Map<string, (session: Session) => Promise<boolean | PluginFeedback | string>> = new Map()
+    // 商品id和回调函数的映射
+    private registeredCallbacks: Map<number, (session: Session) => Promise<boolean | PluginFeedback | string>> = new Map()
 
+    // 注册商品
     async registerItem(pluginName: string, options: MarketItemRegisterOptions) {
-        const itemId = options.id || randomUUID()
-        this.registeredCallbacks.set(itemId, options.onPurchase)
-        //如果有id重复的就删除旧的导入新的
-        if (this.Items.find(item => item.id === itemId)) {
-            this.Items = this.Items.filter(item => item.id !== itemId)
+        await this.db.setupDatabase()
+        // 添加请求锁防止重复提交
+        if (this.registerLock) {
+            // 等待到锁释放
+            while (this.registerLock) {
+                await new Promise(resolve => setTimeout(resolve, 100))
+            } 
         }
-        this.Items.push({
-            id: itemId,
-            name: options.name,
-            description: options.description,
-            price: options.price,
-            pluginName: pluginName,
-            image: options.image || undefined,
-            tags: options.tags || undefined,
-            stock: options.stock || undefined
-        })
-        logs.info(`已注册商品 ${itemId}`)
+        this.registerLock = true
+        // 检查是否有商品名与插件名都相同的商品，有的话判定为相同插件，仅进行更新
+        const Items = await this.db.getAllMarketItem()
+        const existingItem = Items.find(item => item.name == options.name && item.pluginName == pluginName)
+        if (existingItem) {
+            // 更新商品信息
+            existingItem.image = options.image || null
+            existingItem.registered = true
+            await this.db.updateMarketItem([existingItem])
+            this.registeredCallbacks.set(existingItem.id, options.onPurchase)
+            logs.info(`插件 ${pluginName} 已更新商品 ${existingItem.name}`)
+        } else {
+            // 生成新的商品ID
+            const newItemId = await this.db.getNewItemId()
+            // 生成新的商品
+            const newItem: MarketItem = {
+                id: newItemId,
+                name: options.name,
+                description: options.description,
+                tags: options.tags,
+                price: options.price || 0,
+                stock: 0,
+                status: 'unavailable',
+                registered: true,
+                image: options.image,
+                pluginName: pluginName,
+            }
+            // 添加到商品列表
+            this.db.addMarketItem(newItem)
+            this.registeredCallbacks.set(newItemId, options.onPurchase)
+            logs.info(`插件 ${pluginName} 已注册商品 ${newItem.name}`)
+        }
+        // 释放请求锁
+        this.registerLock = false
     }
 
     // 购买商品
-    async purchaseItem(userId: string, itemId: string, session: Session): Promise<PurchaseResult> {
+    async purchaseItem(userId: string, itemId: number, session: Session): Promise<PurchaseResult> {
         // 获取商品信息
-        const item = this.Items.find(item => item.id === itemId)
+        const item = await this.db.getMarketItemById(itemId)
         if (!item) {
             return { success: false, message: '商品不存在' }
         }
         // 检查库存
-        if ((item.stock !== undefined || item.stock !== null) && item.stock <= 0) {
+        if (item.stock == 0) {
             return { success: false, message: '商品已售罄' }
         }
-        // 获取用户名
-        const username = await this.ctx.points.getUserName(userId) || userId
         // 生成交易ID
         const transactionId = this.ctx.points.generateTransactionId()
         // 获取购买回调
@@ -63,7 +96,7 @@ export class MarketService extends Service {
             await this.ctx.points.rollback(userId, transactionId, name)
             return { success: false, message: '商品回调函数未注册', item: item }
         }
-        
+
         // 扣除积分
         const result = await this.ctx.points.reduce(userId, transactionId, item.price, name)
         if (result.code < 200 || result.code >= 300) {
@@ -80,7 +113,7 @@ export class MarketService extends Service {
         } else if (typeof callbackResult === 'string') {
             // 购买失败，回滚积分
             await this.ctx.points.rollback(userId, transactionId, name)
-            return { success: false, message: callbackResult, item: item } 
+            return { success: false, message: callbackResult, item: item }
         } else {
             if (callbackResult.code !== 0) {
                 // 购买失败，回滚积分
@@ -88,19 +121,45 @@ export class MarketService extends Service {
                 return { success: false, message: callbackResult.msg, item: item }
             }
         }
-        if (item.stock !== undefined || item.stock!== null) {
+        if (item.stock !== undefined || item.stock !== null) {
             item.stock--
         }
         return { success: true, message: '购买成功', transactionId: transactionId, item: item }
     }
 
-    // 取消注册商品，将对应itemid的商品从this.Items中删除
-    unregisterItem(itemId: string) {
-        this.Items = this.Items.filter(item => item.id!== itemId)
+    // 取消注册商品
+    async unregisterItem(itemId: number) {
+        // 从回调映射中删除对应的回调
+        this.registeredCallbacks.delete(itemId)
+        let item = await this.db.getMarketItemById(itemId)
+        if (!item) {
+            return
+        }
+        item.registered = false
+        this.db.updateMarketItem([item])
     }
+
     // 取消注册某插件的所有商品
-    unregisterItems(pluginName: string) {
-        this.Items = this.Items.filter(item => item.pluginName!== pluginName) 
+    async unregisterItems(pluginName: string) {
+        const Items = await this.db.getAllMarketItem()
+        const items = Items.filter(item => item.pluginName === pluginName)
+        if (items.length === 0) {
+            return
+        }
+        // 从回调映射中删除对应的回调
+        for (const item of items) {
+            this.registeredCallbacks.delete(item.id)
+            item.registered = false
+        }
+        this.db.updateMarketItem(items)
+        logs.info(`插件 ${pluginName} 已取消注册所有商品`)
+    }
+
+    // 删除某商品
+    async deleteItemById(itemId: number) {
+        // 从回调映射中删除对应的回调
+        this.registeredCallbacks.delete(itemId)
+        this.db.deleteMarketItem(itemId)
     }
 }
 

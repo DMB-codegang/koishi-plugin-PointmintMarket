@@ -33,10 +33,11 @@ export async function registerCommands(ctx: Context, config: Config) {
                             await session.send(marketString);
                             // 等待用户输入页码
                             const input = await session.prompt(60000);
-                            const exchangeMatch = input.match(/^兑换\s+(\S+)/);
+                            // 如果用户输入了兑换指令，则执行兑换操作
+                            const exchangeMatch = input.match(/兑换 (\d+)/);
                             if (exchangeMatch) {
                                 const [, itemId] = exchangeMatch;
-                                const result = await ctx.market.purchaseItem(session.userId, itemId, session);
+                                const result = await ctx.market.purchaseItem(session.userId, Number(itemId), session);
                                 await session.send(result.message);
                                 return
                             }
@@ -57,7 +58,7 @@ export async function registerCommands(ctx: Context, config: Config) {
                 }
             })
             // 注册兑换指令
-            const exchange = ctx.command('兑换 <id:string>').alias('exchange <id:string>');
+            const exchange = ctx.command('兑换 <id:number>').alias('exchange <id:string>');
             exchange.action(async ({ session }, id) => {
                 if (!session.userId) return '无法识别您的id';
                 const currentPoints = await ctx.points.get(session.userId);

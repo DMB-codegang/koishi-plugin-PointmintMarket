@@ -1,5 +1,5 @@
 import { Schema } from 'koishi'
-import { execArgv } from 'process'
+import { MarketItem } from './types'
 
 export interface Config {
   // 基本设置
@@ -15,6 +15,7 @@ export interface Config {
   marketStyleTextStyle?: string
   marketStylePlugin?: string
   marketStylePlugin_marketName?: string
+  // 调试设置
   /** 是否启用调试日志 */
   debug?: boolean
 }
@@ -28,9 +29,9 @@ export const Config: Schema<Config> = Schema.intersect([
   }).description('基本设置'),
   Schema.object({
     purchaseOrder: Schema.union([
-      Schema.const('points-first').description('先扣除积分，再扣除商品'),
-      Schema.const('item-first').description('先扣除商品，再扣除积分'),
-    ]).description('购买时先操作积分还是先操作积分'), 
+      Schema.const('points-first').description('先扣除积分，再兑换商品'),
+      Schema.const('item-first').description('先兑换商品，再扣除积分'),
+    ]).description('购买时先操作积分还是先操作积分'),
   }),
   Schema.object({
     marketStyleDefaultError: Schema.string().default('未知错误').description('未知错误时的默认提示，使用`{code}`表示错误码，`{msg}`表示错误信息'),
@@ -49,8 +50,8 @@ export const Config: Schema<Config> = Schema.intersect([
     Schema.object({
       marketStyle: Schema.const('text'),
       marketStyleTextStyle: Schema.string().role('textarea', { rows: [4, 3] })
-      .default('【积分商城】\n {items} \n 当前为{page}页，共{totalPages}页 \n up上一页，down下一页，回复其他退出')
-      .description('选择输出积分商城的商品信息的文本样式，使用`{items}`表示商品信息，`{page}`表示当前页数，`{totalPages}`表示总页数'),
+        .default('【积分商城】\n {items} \n 当前为{page}页，共{totalPages}页 \n up上一页，down下一页，回复其他退出')
+        .description('选择输出积分商城的商品信息的文本样式，使用`{items}`表示商品信息，`{page}`表示当前页数，`{totalPages}`表示总页数'),
     }),
     Schema.object({
       marketStyle: Schema.const('plugin'),
@@ -59,9 +60,7 @@ export const Config: Schema<Config> = Schema.intersect([
     }),
   ]),
 
-
   Schema.object({
     debug: Schema.boolean().default(false).description('是否启用调试日志'),
   }).description('调试设置'),
-
 ])
