@@ -14,33 +14,40 @@ export const MARKET_ITEMS_TABLE = 'market_items'
 export class market_database {
     private ctx: Context
     private logs: Logger
+
     private _itemsCache: MarketItem[] = []
+    get Items(): MarketItem[] {
+        return this._itemsCache
+    }
+    private async updateCache() {
+        this._itemsCache = await this.ctx.database.select(MARKET_ITEMS_TABLE).execute()
+    }
+
+    // 用于确认数据库是否完成初始化
+    private _initialized: boolean = false
+    get initialized(): boolean {
+        return this._initialized
+    }
 
     constructor(ctx: Context) {
         this.ctx = ctx
         this.logs = logs
-        this.setupDatabase()
-    }
-    async setupDatabase() {
-        try {
-            this.ctx.model.extend(MARKET_ITEMS_TABLE, {
-                id: 'integer',
-                name: 'string',
-                description: 'string',
-                price: 'integer',
-                status: 'string',
-                registered: 'boolean',
-                image: 'string',
-                tags: 'json',
-                stock: 'integer',
-                pluginName: 'string',
-            }, { primary: 'id' })
-        } catch (error) {
-            this.logs.warn(`设置数据库表时出错: ${error.message}`)
-        }
+        this.ctx.model.extend(MARKET_ITEMS_TABLE, {
+            id: 'integer',
+            name: 'string',
+            description: 'string',
+            price: 'integer',
+            status: 'string',
+            registered: 'boolean',
+            image: 'string',
+            tags: 'json',
+            stock: 'integer',
+            pluginName: 'string',
+        }, { primary: 'id' })
     }
 
     async getNewItemId(): Promise<number> {
+        await this.updateCache()
         try {
             if (this._itemsCache.length === 0) return 1
             return this._itemsCache[this._itemsCache.length - 1].id + 1
@@ -48,6 +55,7 @@ export class market_database {
             this.logs.warn(`获取最新商品ID时出错: ${error.message}`)
             return 1
         }
+        
     }
 
     async getAllMarketItem(): Promise<MarketItem[]> {
@@ -61,6 +69,7 @@ export class market_database {
 
     async addMarketItem(item: MarketItem): Promise<void> {
         await this.ctx.database.create(MARKET_ITEMS_TABLE, item)
+        this.updateCache()
         return
     }
 
@@ -70,6 +79,7 @@ export class market_database {
             const { id, ...updateData } = item;
             await this.ctx.database.set(MARKET_ITEMS_TABLE, item.id, updateData)
         }
+        this.updateCache()
         return
     }
 
@@ -79,6 +89,7 @@ export class market_database {
         } else {
             await this.ctx.database.remove(MARKET_ITEMS_TABLE, { id: itemId })
         }
+        this.updateCache()
         return
     }
 }

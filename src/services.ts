@@ -5,15 +5,7 @@ import 'koishi-plugin-pointmint'
 import { name, logs } from './index'
 import { Config } from './config'
 import { market_database } from "./database";
-import { MarketItem } from "./types/index";
-import { MarketItemRegisterOptions, PluginFeedback, PurchaseResult } from './types/services'
-
-declare module '@koishijs/plugin-console' {
-    interface Events {
-        'get-Items'(): MarketItem[]
-        'save-Item'(data: MarketItem): void
-    }
-}
+import { MarketItem, MarketItemRegisterOptions, PluginFeedback, PurchaseResult } from "./types";
 
 export class MarketService extends Service {
     static inject = ['points']
@@ -33,7 +25,6 @@ export class MarketService extends Service {
 
     // 注册商品
     async registerItem(pluginName: string, options: MarketItemRegisterOptions) {
-        await this.db.setupDatabase()
         // 添加请求锁防止重复提交
         if (this.registerLock) {
             // 等待到锁释放

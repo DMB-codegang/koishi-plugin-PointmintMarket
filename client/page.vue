@@ -1,7 +1,7 @@
 <template>
     <k-layout>
         <k-card class="item-management">
-            <el-table :data="items" border style="width: 100%">、
+            <el-table :data="items" border style="width: 100%" key="items-table">
                 <el-table-column type="index" label="商品ID" width="67"></el-table-column>
                 <el-table-column prop="name" label="商品名称" width="150"></el-table-column>
                 <el-table-column prop="description" label="商品介绍" width="230">
@@ -26,11 +26,9 @@
                 </el-table-column>
                 <el-table-column prop="status" label="上下架状态" width="120">
                     <template #default="scope">
-                        <el-select v-model="scope.row.status" placeholder="请选择状态"
-                            :disabled="scope.row.stock === 0 || scope.row.status === 'canceled'">
-                            <el-option label="正常" value="available"></el-option>
-                            <el-option label="下架" value="unavailable"></el-option>
-                        </el-select>
+                        <el-switch v-model="scope.row.status" active-value="available" inactive-value="unavailable"
+                            :disabled="scope.row.stock === 0 || scope.row.status === 'canceled'" active-text="上架"
+                            inactive-text="下架" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #e6a23c" />
                     </template>
                 </el-table-column>
                 <el-table-column label="商品状态" width="85">
@@ -40,15 +38,26 @@
                                 :type="scope.row.stock === 0 || scope.row.registered === false ? 'danger' : scope.row.status === 'available' ? 'success' : 'warning'"
                                 :effect="scope.row.stock === 0 || scope.row.registered === true ? 'dark' : scope.row.status === 'available' ? 'light' : 'plain'"
                                 class="status-tag">
-                                {{ scope.row.registered === false ? '未注册' : scope.row.stock === 0 ? '已售罄' : scope.row.status === 'available' ? '销售中' : '已下架' }}
+                                {{ scope.row.registered === false ? '未注册' : scope.row.stock === 0 ? '已售罄' :
+                                    scope.row.status === 'available' ? '销售中' : '已下架' }}
                             </el-tag>
                         </div>
                     </template>
                 </el-table-column>
                 <el-table-column label="操作">
                     <template #default="scope">
-                        <el-button type="primary" size="small" @click="saveItem(scope.row)">保存</el-button>
-                        <el-button type="danger" size="small" @click="deleteItem(scope.row)">删除</el-button>
+                        <div class="action-buttons">
+                            <el-button type="info" size="small" :disabled="scope.$index === 0"
+                                @click="moveItem(scope.row, 'up')">
+                                ↑
+                            </el-button>
+                            <el-button type="info" size="small" :disabled="scope.$index === items.length - 1"
+                                @click="moveItem(scope.row, 'down')">
+                                ↓
+                            </el-button>
+                            <el-button type="primary" size="small" @click="saveItem(scope.row)">保存</el-button>
+                            <el-button type="danger" size="small" @click="deleteItem(scope.row)">删除</el-button>
+                        </div>
                     </template>
                 </el-table-column>
             </el-table>
@@ -60,6 +69,7 @@
 import { send } from '@koishijs/client'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useTransitionState, TransitionGroup } from 'vue'
 
 
 export default {
@@ -68,19 +78,20 @@ export default {
 
         const fetchItems = async () => {
             try {
-                const data = await send('get-Items')
-                items.value = data.map(item => ({
-                    id: item.id,
-                    name: item.name,
-                    description: item.description,
-                    tags: item.tags,
-                    registered: item.registered,
-                    price: parseFloat(item.price),
-                    stock: parseInt(item.stock),
-                    status: item.status
-                }))
-                ElMessage.success('商品数据获取成功')
-                console.log(items.value)
+                send('get-Items').then((data) => {
+                    items.value = data.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        description: item.description,
+                        tags: item.tags,
+                        registered: item.registered,
+                        price: parseFloat(item.price),
+                        stock: parseInt(item.stock),
+                        status: item.status
+                    }))
+                    ElMessage.success('商品数据获取成功')
+                    console.log(data)
+                })
             } catch (error) {
                 ElMessage.error('获取商品数据失败:' + error.message)
             }
@@ -91,12 +102,18 @@ export default {
 
         const saveItem = (item) => {
             try {
-                // 确保status字段是合法的值
-                if (!['available', 'unavailable'].includes(item.status)) {
-                    item.status = 'unavailable'
-                }
-                send('save-Item', )
+                item.tags = typeof item.tags === 'string'
+                    ? item.tags.split(',').map(tag => tag.trim())
+                    : Array.isArray(item.tags)
+                        ? item.tags
+                        : []
+                item.price = parseFloat(item.price)
+                item.stock = parseInt(item.stock)
+                send('save-Items', [item])
                 ElMessage.success('商品已保存')
+                // 更新商品数据
+                const index = items.value.findIndex(i => i.id === item.id)
+                items.value[index] = item
             } catch (error) {
                 ElMessage.error('保存商品失败:' + error.message)
             }
@@ -120,10 +137,31 @@ export default {
             }
         }
 
+        const moveItem = (item, direction) => {
+            const index = items.value.findIndex(i => i.id === item.id)
+            const newIndex = direction === 'up' ? index - 1 : index + 1
+
+            if (newIndex >= 0 && newIndex < items.value.length) {
+                // 交换元素位置
+                items.value.splice(newIndex, 0, items.value.splice(index, 1)[0])
+
+                // 更新所有商品ID为新的顺序
+                items.value.forEach((item, index) => {
+                    item.id = index + 1  // 生成连续ID，从1开始
+                })
+
+                // 保存整个列表
+                send('save-Items', items.value).then(() => {
+                    ElMessage.success('顺序已更新')
+                })
+            }
+        }
+
         return {
             items,
             saveItem,
-            deleteItem
+            deleteItem,
+            moveItem
         }
     }
 }
