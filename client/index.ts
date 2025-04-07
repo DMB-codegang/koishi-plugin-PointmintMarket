@@ -7,6 +7,7 @@ export default (ctx: Context) => {
   ctx.page({
     name: '积分商城管理',
     path: '/item-market-admin',
+    icon: 'shop_icon.svg',
     component: Page,
   })
 }

@@ -1,7 +1,6 @@
-import { Context, Logger, Schema } from 'koishi'
+import { Context, Logger } from 'koishi'
 
 import { } from '@koishijs/plugin-console'
-import { resolve } from 'path'
 
 // 导入pointmint插件的类型声明
 import { } from 'koishi-plugin-pointmint'
@@ -30,12 +29,7 @@ export const logs = new Logger(name)
 export function apply(ctx: Context, config: Config) {
   const db = new market_database(ctx)
   const cd = new consoleData(ctx)
-  ctx.console.addEntry({
-    dev: resolve(__dirname, '../client/index.ts'),
-    prod: resolve(__dirname, '../dist'),
-  })
-
-
+  
   registerCommands(ctx, config)
   ctx.plugin(MarketService)
 }

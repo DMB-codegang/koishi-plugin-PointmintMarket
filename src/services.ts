@@ -25,15 +25,17 @@ export class MarketService extends Service {
 
     // 注册商品
     async registerItem(pluginName: string, options: MarketItemRegisterOptions) {
-        // 添加请求锁防止重复提交
-        if (this.registerLock) {
-            // 等待到锁释放
-            while (this.registerLock) {
-                await new Promise(resolve => setTimeout(resolve, 100))
-            } 
+        // 请求锁
+        while (!this.db.initialized) {
+            logs.info('等待数据库初始化')
+            await new Promise(resolve => setTimeout(resolve, 100))
+        }
+        // 等待到锁释放
+        while (this.registerLock) {
+            await new Promise(resolve => setTimeout(resolve, 10))
         }
         this.registerLock = true
-        // 检查是否有商品名与插件名都相同的商品，有的话判定为相同插件，仅进行更新
+        // 检查是否有商品名与插件名都相同的商品，有的话判定为相同插件，仅更新部分信息
         const Items = await this.db.getAllMarketItem()
         const existingItem = Items.find(item => item.name == options.name && item.pluginName == pluginName)
         if (existingItem) {
@@ -126,15 +128,22 @@ export class MarketService extends Service {
         if (!item) {
             return
         }
-        item.registered = false
         this.db.updateMarketItem([item])
     }
 
     // 取消注册某插件的所有商品
     async unregisterItems(pluginName: string) {
+        if (this.registerLock) {
+            // 等待到锁释放
+            while (this.registerLock) {
+                await new Promise(resolve => setTimeout(resolve, 100))
+            }
+        }
+        this.registerLock = true
         const Items = await this.db.getAllMarketItem()
         const items = Items.filter(item => item.pluginName === pluginName)
         if (items.length === 0) {
+            this.registerLock = false
             return
         }
         // 从回调映射中删除对应的回调
@@ -144,13 +153,22 @@ export class MarketService extends Service {
         }
         this.db.updateMarketItem(items)
         logs.info(`插件 ${pluginName} 已取消注册所有商品`)
+        this.registerLock = false
     }
 
     // 删除某商品
     async deleteItemById(itemId: number) {
+        if (this.registerLock) {
+            // 等待到锁释放
+            while (this.registerLock) {
+                await new Promise(resolve => setTimeout(resolve, 100))
+            }
+        }
+        this.registerLock = true
         // 从回调映射中删除对应的回调
         this.registeredCallbacks.delete(itemId)
-        this.db.deleteMarketItem(itemId)
+        await this.db.deleteMarketItem(itemId)
+        this.registerLock = false
     }
 }
 
