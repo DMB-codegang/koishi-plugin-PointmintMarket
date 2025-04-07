@@ -11,6 +11,10 @@ export class MarketService extends Service {
     static inject = ['points']
     static [Service.provide] = 'market'
 
+    get Items() {
+        return this.db.Items
+    }
+
     private cfg: Config
     private db: market_database
     private registerLock: boolean = false

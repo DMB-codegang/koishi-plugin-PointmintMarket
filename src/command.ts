@@ -1,4 +1,4 @@
-import { Context, Logger } from "koishi";
+import { Context } from "koishi";
 import { Config } from "./config";
 
 

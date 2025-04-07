@@ -11,15 +11,9 @@ import { Session } from "koishi";
 export interface MarketItemRegisterOptions {
     name: string
     description?: string
-    price?: number & { __brand: 'PositiveNumber' }
-    image?: string & { __brand: 'URL' }
+    price?: number
+    image?: string
     tags?: string[]
-    /** 
-     * 购买回调函数
-     * @param userId 购买用户ID
-     * @param username 购买时用户名
-     * @returns 返回boolean表示简单成功/失败，返回PluginFeedback可提供详细反馈
-     */
     onPurchase: (session: Session) => Promise<boolean | PluginFeedback | string>
 }
 

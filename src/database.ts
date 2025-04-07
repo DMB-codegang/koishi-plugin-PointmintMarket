@@ -92,6 +92,7 @@ export class market_database {
         item1.id = itemId2
         item2.id = itemId1
         await this.updateMarketItem([item1, item2])
+        this.updateCache()
         return
     }
 
