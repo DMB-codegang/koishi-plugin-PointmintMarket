@@ -1,5 +1,6 @@
 import { Context, Logger } from 'koishi'
 
+
 import { } from '@koishijs/plugin-console'
 
 // 导入pointmint插件的类型声明

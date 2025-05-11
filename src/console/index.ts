@@ -54,9 +54,10 @@ export class consoleData {
       this.ctx.market.deleteItemById(id)
     })
 
-    this.ctx.console.addEntry({
+    this.
+    ctx.console.addEntry({
       dev: resolve(__dirname, '../../client/index.ts'),
-      prod: resolve(__dirname, '../../dist'),
+      prod: resolve(__dirname, '../dist'),
     })
   }
 }

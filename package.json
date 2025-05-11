@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pointmintmarket",
   "description": "积分商城系统 - 为其他插件提供商品注册和购买功能",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
   },
   "peerDependencies": {
     "koishi": "^4.18.3",
-    "koishi-plugin-pointmint": "^0.0.7",
+    "koishi-plugin-pointmint": "^0.0.8",
     "@koishijs/plugin-console": "^5.11.0"
   },
   "koishi": {
