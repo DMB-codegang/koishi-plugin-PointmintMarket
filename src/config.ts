@@ -1,5 +1,4 @@
 import { Schema } from 'koishi'
-import { MarketItem } from './types'
 
 export interface Config {
   // 基本设置
